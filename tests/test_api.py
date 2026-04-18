@@ -43,3 +43,9 @@ def test_get_task_status_not_found():
     # 查询一个不存在的任务
     status_res = client.get("/api/v1/agent/status/invalid-id-12345")
     assert status_res.status_code == 404
+    # 追加到 tests/test_api.py 末尾
+def test_frontend_served():
+    # 测试 FastAPI 是否正确挂载并返回了静态主页
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
