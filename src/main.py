@@ -1,5 +1,8 @@
 # 覆盖 src/main.py 的全部内容
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.staticfiles import StaticFiles  # 新增
+from fastapi.responses import FileResponse    # 新增
+import os
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 import uuid
@@ -10,6 +13,17 @@ from src.agent.graph import build_agent_graph
 
 app = FastAPI(title="Customer Service Agent API")
 
+# 确保静态目录存在
+os.makedirs("src/static", exist_ok=True)
+
+# 挂载静态资源路径
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
+
+# 根路径路由：直接返回 index.html
+@app.get("/")
+async def serve_index():
+    return FileResponse("src/static/index.html")
+    
 # 内存数据库，用于存储任务进度和结果 (MVP版本，生产环境可用 Redis 替代)
 TASK_STORE: Dict[str, Dict[str, Any]] = {}
 

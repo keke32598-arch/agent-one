@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业级客服需求分析 Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+    <div class="max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-slate-100">
+        <header class="mb-8 border-b border-slate-100 pb-6">
+            <h1 class="text-3xl font-extrabold text-slate-800">Agent 智能分析工作台</h1>
+            <p class="text-slate-500 mt-2">基于通义千问大模型，提供自动化批处理与深度单案诊断</p>
+        </header>
+
+        <section id="upload-zone" class="border-4 border-dashed border-slate-200 rounded-2xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+            <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">📁</div>
+            <p class="text-xl font-medium text-slate-600">点击上传文件进行 AI 分析</p>
+            <p class="text-sm text-slate-400 mt-2">支持 Excel (批处理模式) 或 PDF/Word (深度分析模式)</p>
+        </section>
+
+        <div id="status-zone" class="mt-6 p-4 rounded-lg bg-blue-50 text-blue-700 font-medium hidden flex items-center">
+            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"></svg>
+            <span>正在处理中，请稍候...</span>
+        </div>
+
+        <section id="result-zone" class="mt-10"></section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
