@@ -13,6 +13,41 @@ from src.utils.parser import parse_document  # 引入刚才写的统一解析器
 
 app = FastAPI(title="Customer Service Agent API")
 
+
+# 定义更新日志数据与接口 
+VERSION_LOGS = [
+    {
+        "date": "2026-04-19", 
+        "version": "我又有想法了", 
+        "content": "弄个用户界面，两种用户，老板和员工，老板接到AI给出的解决策略，一键发给相应的员工处理，员工处理完后上报老板"
+    }, 
+    {
+        "date": "2026-04-19", 
+        "version": "随便写点什么", 
+        "content": "这是一个面向销售厂家的Agent，我的畅想是它可以调用pdd的API，抓取客户的诉求，然后丢给AI大模型，最后给出解决方案"
+    }, 
+    {
+        "date": "2026-04-19", 
+        "version": "项目上线", 
+        "content": "支持 Excel/PDF 解析。"
+    }, 
+    {
+        "date": "我是水字数", 
+        "version": "我是水字数", 
+        "content": "我是水字数"
+    }, 
+    {
+        "date": "我是水字数", 
+        "version": "我是水字数", 
+        "content": "我是水字数"
+    }, 
+]
+
+@app.get("/api/v1/changelog")
+async def get_changelog():
+    """下发系统更新日志"""
+    return VERSION_LOGS
+
 TASK_STORE: Dict[str, Dict[str, Any]] = {}
 agent_app = build_agent_graph()
 

@@ -200,3 +200,52 @@ function renderResult(data) {
         `;
     }
 }
+// --- Task 3: 异步获取并渲染日志 ---
+async function fetchChangelog() {
+    try {
+        const response = await fetch('/api/v1/changelog');
+        const logs = await response.json();
+        renderChangelog(logs);
+    } catch (error) {
+        console.error("加载更新日志失败:", error);
+    }
+}
+
+function renderChangelog(logs) {
+    const container = document.getElementById('changelog-zone');
+    if (!container) return;
+
+    let html = `
+       <div class="bg-slate-900/0 backdrop-blur-sm rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden animate-[fadeIn_0.8s_ease-out]">
+           <div class="px-10 py-8 border-b border-white/10 bg-slate-900/50 flex items-center">
+
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-50 tracking-tight">日志</h2>
+                    <p class="text-sm text-slate-400 font-medium mt-1">我有话说！！！</p>
+                </div>
+            </div>
+            
+            <div class="p-10 space-y-10">
+    `;
+
+    logs.forEach(log => {
+        html += `
+            <div class="flex items-start space-x-6 group">
+                <div class="shrink-0 w-28 pt-1.5">
+                    <span class="text-[20px] font-black text-emerald-500/70 tracking-tighter uppercase font-mono">${log.date}</span>
+                </div>
+                <div class="relative pl-8 border-l border-white/10 pb-2">
+                    <div class="absolute left-[-5px] top-3 w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.8)] transition-transform group-hover:scale-125"></div>
+                    <h3 class="text-slate-100 font-bold text-lg mb-2 group-hover:text-emerald-400 transition-colors">${log.version}</h3>
+                    <p class="text-slate-400 text-[15px] leading-relaxed max-w-2xl">${log.content}</p>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+
+// 确保在页面加载后调用
+window.addEventListener('DOMContentLoaded', fetchChangelog);
