@@ -35,10 +35,23 @@ class SubmitRequest(BaseModel):
 
 def run_agent_task(task_id: str, file_type: str):
     """在后台实际运行 LangGraph 任务，并更新结果到 TASK_STORE"""
+    
+    # 修复点：根据传入的文件类型，模拟不同的文件解析结果
+    if file_type == "excel":
+        # 模拟解析 Excel 得到的多行短文本
+        mock_content = [
+            {"text": "你们这新APP怎么一打开就闪退？赶紧修复！"},
+            {"text": "今天客服小李态度特别好，非常有耐心，提出表扬。"},
+            {"text": "请问年费会员怎么取消自动续费？"}
+        ]
+    else:
+        # 模拟解析 PDF/Word 拿到的长篇案卷字符串
+        mock_content = "大客户投诉案卷：关于双十一大促期间系统崩溃的严重反馈。客户表示昨天晚上熬夜抢购，结果一到零点点击付款，系统就一直转圈圈，最后提示订单失效。客户情绪非常激动，认为平台架构存在严重高并发瓶颈，严重损害了消费者权益，并威胁要拨打12315进行投诉。要求平台必须立刻给出详细的技术故障说明和补偿方案。"
+
     initial_state: AgentState = {
         "task_id": task_id,
         "file_type": file_type, # type: ignore
-        "raw_content": [{"text": "模拟的真实用户传入数据"}], # 暂时传入Mock数据打通流程
+        "raw_content": mock_content, # 传入动态匹配的数据
         "current_node": "start",
         "batch_results": [],
         "analysis_result": {},
