@@ -1,5 +1,31 @@
-// src/static/app.js (替换顶部的逻辑)
+// 获取 DOM 元素
+const btnBatch = document.getElementById('btn-batch');
+const btnDeep = document.getElementById('btn-deep');
+const uploadTitle = document.getElementById('upload-title');
+const fileInput = document.getElementById('file-input');
 
+// 简化样式切换：只使用新写的自定义类
+const baseClass = "btn-cyber";
+const activeClass = "btn-cyber btn-cyber-active";
+
+// 点击【批处理模式】
+btnBatch.addEventListener('click', () => {
+    btnBatch.className = activeClass;
+    btnDeep.className = baseClass;
+    
+    uploadTitle.innerText = "请上传 Excel 或 CSV 文件";
+    fileInput.accept = ".xlsx,.xls,.csv";
+});
+
+// 点击【深度研讨模式】
+btnDeep.addEventListener('click', () => {
+    btnDeep.className = activeClass;
+    btnBatch.className = baseClass;
+    
+    uploadTitle.innerText = "请上传 PDF 或 Word 文件";
+    fileInput.accept = ".pdf,.doc,.docx";
+});
+// ... 下面保留你原本写的 upload-zone 的事件监听和 submitTask 等函数 ...
 // 1. 点击拖拽区，触发隐藏的文件选择器
 document.getElementById('upload-zone').addEventListener('click', () => {
     document.getElementById('file-input').click();
@@ -76,78 +102,98 @@ async function pollStatus(taskId) {
     }, 1000);
 }
 
-// 渲染函数
+// src/static/app.js (完全体：全卡片 Uiverse 高级特效渲染)
+
 function renderResult(data) {
     const resultZone = document.getElementById('result-zone');
-    resultZone.innerHTML = ""; // 渲染前先清空旧内容
+    resultZone.innerHTML = ""; 
     
-    // 场景 1：如果进入的是批处理子图 (Excel模式)
+    // ================= 批处理模式渲染 =================
     if (data.current_node === 'batch_processing_subgraph') {
         let tableHTML = `
-            <div class="transition-all duration-500 ease-in-out opacity-100 transform translate-y-0">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-                    <span class="text-3xl mr-2">📊</span> 批处理分类结果
-                </h2>
-                <div class="overflow-hidden bg-white rounded-xl shadow-sm border border-slate-200">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-slate-600 tracking-wider">原文本</th>
-                                <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-slate-600 tracking-wider">分类标签</th>
-                                <th scope="col" class="px-6 py-4 text-left text-sm font-bold text-slate-600 tracking-wider">AI 建议</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-200 bg-white">
+            <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
+                <div class="bg-slate-800/80 backdrop-blur-xl rounded-[2rem] shadow-xl shadow-black/30 border border-slate-700/80 overflow-hidden">
+                    <div class="px-8 py-6 border-b border-slate-700/80 bg-slate-800/50 flex items-center">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-900/50 text-indigo-400 flex items-center justify-center text-2xl mr-5 shadow-[0_0_15px_rgba(79,70,229,0.3)] border border-indigo-700/50">📊</div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-100 tracking-tight">批处理分类结果</h2>
+                            <p class="text-sm text-slate-400 font-medium mt-1">AI 已完成多行文本的智能打标与建议生成</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-800/50">
+                                <tr>
+                                    <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider w-1/2">原文本</th>
+                                    <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider">分类标签</th>
+                                    <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider">AI 建议</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
         `;
-        
-        // 遍历生成表格行
         data.batch_results.forEach(row => {
             tableHTML += `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 text-sm text-slate-700 font-medium">${row.original}</td>
-                    <td class="px-6 py-4 text-sm whitespace-nowrap">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                            ${row.category}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${row.suggestion}</td>
-                </tr>
+                                <tr class="hover:bg-indigo-900/20 transition-colors duration-200">
+                                    <td class="px-8 py-5 text-sm text-slate-300 font-medium leading-relaxed">${row.original}</td>
+                                    <td class="px-8 py-5 text-sm whitespace-nowrap">
+                                        <span class="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 shadow-sm">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-2 shadow-[0_0_5px_#818cf8]"></span>
+                                            ${row.category}
+                                        </span>
+                                    </td>
+                                    <td class="px-8 py-5 text-sm text-slate-400 leading-relaxed">${row.suggestion}</td>
+                                </tr>
             `;
         });
-        tableHTML += `</tbody></table></div></div>`;
+        tableHTML += `</tbody></table></div></div></div>`;
         resultZone.innerHTML = tableHTML;
         
-    // 场景 2：如果进入的是深度分析子图 (PDF/Word模式)
+    // ================= 深度研讨模式渲染 (全特效版) =================
     } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
         resultZone.innerHTML = `
-            <div class="transition-all duration-500 ease-in-out opacity-100 transform translate-y-0">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center border-b border-slate-200 pb-4">
-                    <span class="text-3xl mr-2">📑</span> 深度研讨诊断报告
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <div class="bg-rose-50 rounded-2xl p-6 border border-rose-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center mb-4">
-                            <span class="text-2xl mr-2">🚨</span>
-                            <h3 class="text-lg font-extrabold text-rose-900">痛点诊断</h3>
+            <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards] space-y-6">
+                <div class="flex items-center px-2 mb-8">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white flex items-center justify-center text-3xl mr-5 shadow-[0_0_20px_rgba(124,58,237,0.4)] border border-indigo-400/30">📑</div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-indigo-300 tracking-tight">深度研讨诊断报告</h2>
+                        <p class="text-slate-400 font-medium mt-1">Qwen 架构师级单案深度剖析</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                    <div class="h-full rounded-[2rem] bg-gradient-to-br from-rose-500 to-purple-600 transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(244,63,94,0.4)] group p-[2px]">
+                        <div class="bg-[#1a1a1a] h-full w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.98] relative overflow-hidden flex flex-col">
+                            <h3 class="text-xl font-bold text-rose-400 mb-5 flex items-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-700/50 text-xl shadow-sm">🚨</div> 
+                                痛点诊断
+                            </h3>
+                            <p class="text-rose-100/80 leading-relaxed font-medium text-[15px] grow">${analysis['痛点诊断']}</p>
                         </div>
-                        <p class="text-rose-800 leading-relaxed font-medium">${analysis['痛点诊断']}</p>
                     </div>
                     
-                    <div class="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center mb-4">
-                            <span class="text-2xl mr-2">💡</span>
-                            <h3 class="text-lg font-extrabold text-emerald-900">解决方案</h3>
+                    <div class="h-full rounded-[2rem] bg-gradient-to-br from-[#00ff75] to-[#3700ff] transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(0,255,117,0.4)] group p-[2px]">
+                        <div class="bg-[#1a1a1a] h-full w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.98] relative overflow-hidden flex flex-col">
+                            <h3 class="text-xl font-bold text-[#00ff75] mb-5 flex items-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-[#00ff75]/30 text-xl shadow-sm">💡</div> 
+                                解决方案
+                            </h3>
+                            <p class="text-emerald-100/80 leading-relaxed font-medium text-[15px] whitespace-pre-line grow">${analysis['解决方案']}</p>
                         </div>
-                        <p class="text-emerald-800 leading-relaxed font-medium whitespace-pre-line">${analysis['解决方案']}</p>
                     </div>
-                    
-                    <div class="md:col-span-2 bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm mt-2">
-                        <div class="flex items-center mb-3">
-                            <span class="text-xl mr-2">📌</span>
-                            <h3 class="text-md font-bold text-slate-800">提取事实原文</h3>
+                </div>
+
+                <div class="rounded-[2rem] bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-600 transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(6,182,212,0.4)] group p-[2px]">
+                    <div class="bg-[#1a1a1a] w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.99] relative overflow-hidden flex flex-col">
+                        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/10 blur-[50px] pointer-events-none"></div>
+
+                        <h3 class="text-xl font-bold text-cyan-400 mb-5 flex items-center relative z-10">
+                            <div class="w-10 h-10 rounded-xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-700/50 text-xl shadow-sm">📌</div> 
+                            提取事实原文
+                        </h3>
+                        <div class="relative z-10 pl-6 border-l-4 border-cyan-400 bg-gradient-to-r from-cyan-900/20 to-transparent py-5 pr-4 rounded-r-2xl group-hover:border-indigo-400 transition-colors duration-300">
+                            <p class="text-slate-300 italic leading-relaxed font-medium text-[15px]">${analysis['事实']}</p>
                         </div>
-                        <p class="text-slate-600 italic border-l-4 border-slate-300 pl-4 py-1">${analysis['事实']}</p>
                     </div>
                 </div>
             </div>

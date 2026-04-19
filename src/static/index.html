@@ -3,30 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企业级客服需求分析 Agent</title>
+    <title>企业级客诉分析 Agent 工作台</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === 新增：你的高级霓虹发光按钮样式 === */
+        .btn-cyber {
+            padding: 10px 32px;
+            text-transform: uppercase;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 200;
+            /* 适配浅色背景：基础颜色改为靛蓝色，而不是透明白 */
+            color: #ffffff; 
+            background: transparent;
+            cursor: pointer;
+            border: 1px solid #4f46e5;
+            transition: 0.5s ease;
+            user-select: none;
+            box-shadow: none;
+            text-shadow: none;
+        }
+
+        /* 保留你原汁原味的多层发光参数 */
+        .btn-cyber:hover,
+        .btn-cyber-active {
+            color: #ffffff;
+            background: #008cff;
+            border: 1px solid #008cff;
+            text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff;
+            box-shadow: 0 0 2px #008cff, 0 0 6px #008cff, 0 0 12px #008cff;
+        }
+    </style>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-8">
-    <div class="max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-slate-100">
-        <header class="mb-8 border-b border-slate-100 pb-6">
-            <h1 class="text-3xl font-extrabold text-slate-800">客诉/客需Agent分析</h1>
-            <p class="text-slate-500 mt-2">基于千问，提供批量处理客诉与大客户单案分析</p>
+
+<body class="bg-[url('/static/bg.jpg')] bg-cover bg-center bg-fixed min-h-screen text-slate-200 antialiased p-4 md:p-8 lg:p-12">
+    
+    <div class="fixed inset-0 bg-slate-900/60 pointer-events-none z-0"></div>
+
+    <div class="max-w-6xl mx-auto relative z-10">
+        
+        <header class="relative flex flex-col items-center justify-center mb-10 bg-transparent px-8 py-10 rounded-3xl shadow-none border border-white/0">
+            <div class="absolute top-6 left-8 hidden md:flex items-center space-x-2 text-slate-400 text-xs font-bold tracking-wide hover:text-indigo-300 transition-colors duration-300 group cursor-default">
+                    <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(165,180,252,0.8)] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="group-hover:drop-shadow-[0_0_8px_rgba(165,180,252,0.8)] transition-all">制作人邮箱：1926751775@qq.com</span>
+             </div>  
+            <div class="absolute top-6 right-8 hidden md:flex space-x-3">
+                <span class="px-3 py-1 bg-emerald-900/40 text-emerald-400 rounded-full text-xs font-bold border border-emerald-700/50 flex items-center shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse shadow-[0_0_8px_#34d399]"></span> 系统在线
+                </span>
+                <span class="px-3 py-1 bg-indigo-900/40 text-indigo-400 rounded-full text-xs font-bold border border-indigo-700/50 shadow-sm">
+                    Qwen Core
+                </span>
+            </div>
+
+            <div class="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center shadow-[0_0_20px_rgba(79,70,229,0.4)] text-white text-3xl transform transition hover:scale-105">
+                ✨
+            </div>
+            
+            <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-indigo-200 tracking-tight text-center">
+                Agent 智能分析工作台
+            </h1>
+            
+            <p class="text-base text-slate-400 font-medium mt-2 text-center">
+                基于大模型的企业级客诉与案卷洞察引擎
+            </p>
+
         </header>
 
-        <section id="upload-zone" class="border-4 border-dashed border-slate-200 rounded-2xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
-            <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">📁</div>
-            <p class="text-xl font-medium text-slate-600">点击上传文件进行 AI 分析</p>
-            <p class="text-sm text-slate-400 mt-2">支持 Excel (批处理模式) 或 PDF/Word (深度分析模式)</p>
-            
-            <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls,.pdf,.doc,.docx" />
-        </section>
+        <main class="bg-slate-900/20 p-8 md:p-12 rounded-[2.5rem] shadow-2xl shadow-black/50 border border-white/0">
 
-        <div id="status-zone" class="mt-6 p-4 rounded-lg bg-blue-50 text-blue-700 font-medium hidden flex items-center">
-            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24"></svg>
-            <span>正在处理中，请稍候...</span>
-        </div>
+            <section id="upload-zone" class="relative group border-2 border-dashed border-slate-600/60 rounded-3xl px-16 py-12 text-center cursor-pointer overflow-hidden transition-all duration-300 ease-out hover:border-indigo-500 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] bg-gradient-to-b from-transparent to-slate-800/50">
+                <div class="absolute inset-0 bg-indigo-500 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                
+                <div class="text-7xl mb-6 transform group-hover:-translate-y-2 group-hover:scale-110 transition-transform duration-500 ease-out drop-shadow-lg">📁</div>
+                
+                <h2 id="upload-title" class="text-2xl font-bold text-slate-300 group-hover:text-indigo-300 transition-colors">请上传 Excel 或 CSV 文件</h2>
+                
+                <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls,.csv" />
+            </section>
 
-        <section id="result-zone" class="mt-10"></section>
+            <div class="flex justify-center mt-8 space-x-6">
+                <button id="btn-batch" class="btn-cyber btn-cyber-active">批处理模式</button>
+                <button id="btn-deep" class="btn-cyber">深度研讨模式</button>
+            </div>
+
+            <div id="status-zone" class="mt-8 p-5 rounded-2xl bg-indigo-900/20 border border-indigo-500/30 hidden flex items-center shadow-inner">
+                <svg class="animate-spin -ml-1 mr-4 h-6 w-6 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-indigo-300 font-bold tracking-wide text-sm md:text-base">正在解析文件并调用大模型，请稍候...</span>
+            </div>
+
+            <section id="result-zone" class="mt-12"></section>
+
+        </main>
     </div>
 
     <script src="/static/app.js"></script>
