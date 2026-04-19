@@ -92,7 +92,7 @@ async function pollStatus(taskId) {
                     renderResult(data.data); // 渲染结果
                 } else {
                     // 更新进度提示
-                    statusZone.querySelector('span').innerText = `正在处理中... (Task ID: ${taskId})`;
+                    statusZone.querySelector('span').innerText = `正在处理中，请耐心等候哟😊`;
                 }
             }
         } catch (err) {
