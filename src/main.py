@@ -45,6 +45,11 @@ app = FastAPI(title="Customer Service Agent API")
 # 定义更新日志数据与接口 
 VERSION_LOGS = [
     {
+        "date": "2026-04-22", 
+        "version": "新增功能", 
+        "content": "今年弄了个历史记录功能，就是那个档案馆，可以查看之前处理的文档报告"
+    }, 
+    {
         "date": "2026-04-19", 
         "version": "我又有想法了", 
         "content": "弄个用户界面，两种用户，老板和员工，老板接到AI给出的解决策略，一键发给相应的员工处理，员工处理完后上报老板"
