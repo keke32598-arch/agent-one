@@ -1,4 +1,5 @@
 # src/main.py
+
 from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -10,6 +11,33 @@ import shutil
 from src.agent.state import AgentState
 from src.agent.graph import build_agent_graph
 from src.utils.parser import parse_document  # 引入刚才写的统一解析器
+
+
+
+# src/main.py 顶部新增
+import sqlite3
+import json
+from datetime import datetime
+def get_db():
+    conn = sqlite3.connect("tasks.db", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    with get_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY,
+                status TEXT,
+                data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+init_db()  # 启动时自动建表
+
+
+
+
 
 app = FastAPI(title="Customer Service Agent API")
 
@@ -84,16 +112,14 @@ def run_agent_task(task_id: str, file_path: str):
         final_state = agent_app.invoke(initial_state)
         
         # 4. 运行完毕，更新存储状态
-        TASK_STORE[task_id] = {
-            "status": "completed",
-            "result": final_state
-        }
+        with get_db() as conn:
+            conn.execute("UPDATE tasks SET status=?, data=? WHERE id=?",
+                 ("completed", json.dumps({"result": final_state}), task_id))
     except Exception as e:
         # 捕获解析报错或大模型崩溃，方便排查
-        TASK_STORE[task_id] = {
-            "status": "failed",
-            "error": str(e)
-        }
+        with get_db() as conn:
+            conn.execute("UPDATE tasks SET status=?, data=? WHERE id=?",
+                 ("failed", json.dumps({"error": str(e)}), task_id))
     finally:
         # 5. 极客修养：无论成功失败，处理完必须删掉临时物理文件，防止磁盘塞满
         if os.path.exists(file_path):
@@ -110,7 +136,9 @@ async def submit_task(background_tasks: BackgroundTasks, file: UploadFile = File
         shutil.copyfileobj(file.file, buffer)
     
     # 2. 初始化任务状态
-    TASK_STORE[task_id] = {"status": "processing", "result": None}
+    with get_db() as conn:
+        conn.execute("INSERT INTO tasks (id, status, data) VALUES (?, ?, ?)", 
+                 (task_id, "running", json.dumps({})))
     
     # 3. 将后台任务挂载到队列，这次传入的是真实的物理路径
     background_tasks.add_task(run_agent_task, task_id, file_path)
@@ -119,17 +147,20 @@ async def submit_task(background_tasks: BackgroundTasks, file: UploadFile = File
 
 @app.get("/api/v1/agent/status/{task_id}")
 async def get_task_status(task_id: str):
-    if task_id not in TASK_STORE:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    task_data = TASK_STORE[task_id]
-    
-    # 增加对失败状态的友好抛出
-    if task_data["status"] == "failed":
-        raise HTTPException(status_code=500, detail=task_data.get("error", "文件解析或大模型处理失败"))
+    with get_db() as conn:
+        row = conn.execute("SELECT status, data FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="任务不存在")
         
-    return {
-        "task_id": task_id,
-        "status": task_data["status"],
-        "data": task_data.get("result")
-    }
+        status = row["status"]
+        data = json.loads(row["data"])
+        
+        if status == "failed":
+            raise HTTPException(status_code=500, detail=data.get("error", "大模型处理失败"))
+        return {"status": status, "result": data.get("result")}
+@app.get("/api/v1/tasks")
+async def get_history_tasks():
+    with get_db() as conn:
+        # 按时间倒序，最多取最近 20 条
+        rows = conn.execute("SELECT id, status, created_at FROM tasks ORDER BY created_at DESC LIMIT 20").fetchall()
+        return [{"id": row["id"], "status": row["status"], "created_at": row["created_at"]} for row in rows]

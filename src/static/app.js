@@ -249,3 +249,88 @@ function renderChangelog(logs) {
 
 // 确保在页面加载后调用
 window.addEventListener('DOMContentLoaded', fetchChangelog);
+
+
+
+
+// --- 记忆持久化：获取并渲染历史任务 ---
+async function fetchHistory() {
+    try {
+        const response = await fetch('/api/v1/tasks');
+        const tasks = await response.json();
+        renderHistory(tasks);
+    } catch (error) {
+        console.error("加载历史记录失败:", error);
+    }
+}
+
+function renderHistory(tasks) {
+    const container = document.getElementById('history-zone');
+    if (!container || tasks.length === 0) return;
+
+    let html = `
+        <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden mb-8">
+            <div class="px-10 py-6 border-b border-white/10 bg-slate-900/50 flex items-center">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-900/40 text-indigo-400 flex items-center justify-center text-2xl mr-5 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-500/30">💾</div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-50 tracking-tight">历史研讨记录</h2>
+                    <p class="text-xs text-slate-400 font-medium mt-1">点击卡片直接恢复过去的分析报告</p>
+                </div>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    `;
+
+    tasks.forEach(task => {
+        // 解析时间戳，让显示更人性化
+        const dateObj = new Date(task.created_at + 'Z'); 
+        const timeStr = `${dateObj.getMonth()+1}-${dateObj.getDate()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+        
+        const isSuccess = task.status === 'completed';
+        const statusColor = isSuccess ? 'text-emerald-400' : (task.status === 'running' ? 'text-amber-400' : 'text-rose-400');
+        const statusText = isSuccess ? '分析完成' : (task.status === 'running' ? '处理中...' : '解析失败');
+
+        html += `
+            <div onclick="loadHistoricalTask('${task.id}')" class="cursor-pointer group relative bg-slate-800/50 hover:bg-slate-700/60 border border-white/5 hover:border-indigo-500/50 rounded-2xl p-4 transition-all duration-300 overflow-hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-mono text-slate-400 group-hover:text-slate-300">ID: ${task.id.substring(0, 6)}...</span>
+                    <span class="text-xs font-bold ${statusColor}">${statusText}</span>
+                </div>
+                <div class="text-sm font-medium text-slate-300 mt-2 flex items-center">
+                    <span class="mr-2 opacity-60">🕒</span> ${timeStr}
+                </div>
+                <div class="absolute inset-0 border-2 border-transparent group-hover:border-indigo-500/20 rounded-2xl pointer-events-none transition-all"></div>
+            </div>
+        `;
+    });
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+
+// 点击历史任务，直接拉取报告并渲染
+async function loadHistoricalTask(taskId) {
+    // 滚动到顶部，准备展示结果
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const resultZone = document.getElementById('result-zone');
+    resultZone.innerHTML = `<div class="text-center text-indigo-400 animate-pulse my-10">正在从记忆体中提取分析报告...</div>`;
+    
+    try {
+        const response = await fetch(`/api/v1/agent/status/${taskId}`);
+        if (!response.ok) throw new Error("无法读取该记录");
+        const data = await response.json();
+        
+        if (data.status === 'completed') {
+            renderResult(data.result); // 复用现有的炫酷渲染函数！
+        } else {
+            resultZone.innerHTML = `<div class="text-center text-rose-400 my-10">该任务状态异常或未完成。</div>`;
+        }
+    } catch (error) {
+        resultZone.innerHTML = `<div class="text-center text-rose-400 my-10">记忆提取失败：${error.message}</div>`;
+    }
+}
+
+// 确保页面加载时除了加载 changelog，也加载 history
+window.addEventListener('DOMContentLoaded', () => {
+    fetchHistory();
+    // 如果之前有 fetchChangelog()，记得确保它们都能执行
+});
