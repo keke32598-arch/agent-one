@@ -48,18 +48,24 @@ async function submitTask(file) {
     const statusZone = document.getElementById('status-zone');
     const resultZone = document.getElementById('result-zone');
     
-    // UI 状态更新
+    // UI 状态更新：显示顶部小黄条
     statusZone.classList.remove('hidden');
-    // 显示真实的文件名
     statusZone.querySelector('span').innerText = `正在上传并分析: ${file.name} ...`;
-    resultZone.innerHTML = "";
+    
+    // 【核心新增】立即展示赛博风 Loading 动画，占据结果区
+    resultZone.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-20 animate-pulse">
+            <div class="w-20 h-20 border-4 border-t-indigo-500 border-indigo-900/30 rounded-full animate-spin mb-6"></div>
+            <p class="text-indigo-400 font-bold text-xl tracking-widest">AGENT 正在分析中...</p>
+            <p class="text-slate-500 text-sm mt-2">正在解析文档并生成智能建议，请稍候</p>
+        </div>
+    `;
 
     // 核心改变：使用 FormData 封装二进制文件
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-        // 注意：使用 FormData 时，千万不要手动设置 'Content-Type' header，浏览器会自动设置正确的 boundary！
         const response = await fetch('/api/v1/agent/submit', {
             method: 'POST',
             body: formData 
@@ -68,11 +74,13 @@ async function submitTask(file) {
         if (!response.ok) throw new Error(`HTTP 错误! 状态码: ${response.status}`);
         
         const data = await response.json();
+        // 开始轮询
         pollStatus(data.task_id);
     } catch (err) {
         statusZone.classList.replace('bg-blue-50', 'bg-red-50');
         statusZone.classList.replace('text-blue-700', 'text-red-700');
         statusZone.querySelector('span').innerText = "提交失败: " + err.message;
+        resultZone.innerHTML = ""; // 失败时清空 Loading
     }
 }
 async function pollStatus(taskId) {
@@ -86,10 +94,34 @@ async function pollStatus(taskId) {
                 const data = await res.json();
                 
                 if (data.status === 'completed') {
-                    // 任务完成，清除定时器
+                    // 1. 任务完成，清除定时器并隐藏顶部黄条
                     clearInterval(interval);
-                    statusZone.classList.add('hidden'); // 隐藏加载状态
-                    renderResult(data.data); // 渲染结果
+                    statusZone.classList.add('hidden'); 
+                    
+                    // 2. 自动渲染结果 (兼容 data.result 和 data.data)
+                    renderResult(data.result || data.data); 
+                    
+                    // 3. 【核心新增】自动刷新下方的历史记录列表
+                    if (typeof fetchHistory === 'function') {
+                        fetchHistory();
+                    }
+
+                    // 4. 【核心新增】自动平滑滚动到结果区域
+                    document.getElementById('result-zone').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+
+                } else if (data.status === 'failed') {
+                    // 【核心新增】失败状态处理
+                    clearInterval(interval);
+                    statusZone.classList.add('hidden');
+                    document.getElementById('result-zone').innerHTML = `
+                        <div class="text-center text-rose-400 py-10 border border-rose-900/50 rounded-2xl bg-rose-900/10">
+                            <p class="text-xl font-bold">分析失败</p>
+                            <p class="text-sm opacity-70 mt-2">${data.error || '大模型处理或解析异常'}</p>
+                        </div>
+                    `;
                 } else {
                     // 更新进度提示
                     statusZone.querySelector('span').innerText = `正在处理中，请耐心等候哟😊`;
@@ -112,8 +144,8 @@ function renderResult(data) {
     if (data.current_node === 'batch_processing_subgraph') {
         let tableHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-                <div class="bg-slate-800/80 backdrop-blur-xl rounded-[2rem] shadow-xl shadow-black/30 border border-slate-700/80 overflow-hidden">
-                    <div class="px-8 py-6 border-b border-slate-700/80 bg-slate-800/50 flex items-center">
+                <div class="bg-slate-800/10 rounded-[2rem] shadow-xl shadow-black/30 border border-slate-700/80 overflow-hidden">
+                    <div class="px-8 py-6 border-b border-slate-700/80 bg-slate-800/10 flex items-center">
                         <div class="w-12 h-12 rounded-2xl bg-indigo-900/50 text-indigo-400 flex items-center justify-center text-2xl mr-5 shadow-[0_0_15px_rgba(79,70,229,0.3)] border border-indigo-700/50">📊</div>
                         <div>
                             <h2 class="text-2xl font-bold text-slate-100 tracking-tight">批处理分类结果</h2>
@@ -148,52 +180,50 @@ function renderResult(data) {
         tableHTML += `</tbody></table></div></div></div>`;
         resultZone.innerHTML = tableHTML;
         
-    // ================= 深度研讨模式渲染 (全特效版) =================
+// ================= 深度研讨模式渲染 (全息亚克力重构版) =================
     } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
         resultZone.innerHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards] space-y-6">
-                <div class="flex items-center px-2 mb-8">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white flex items-center justify-center text-3xl mr-5 shadow-[0_0_20px_rgba(124,58,237,0.4)] border border-indigo-400/30">📑</div>
+                <div class="flex items-center px-4 mb-8">
+                    <div class="w-14 h-14 rounded-2xl bg-indigo-900/40 text-indigo-400 flex items-center justify-center text-3xl mr-6 shadow-[0_0_20px_rgba(79,70,229,0.2)] border border-indigo-500/30">📑</div>
                     <div>
                         <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-indigo-300 tracking-tight">深度研讨诊断报告</h2>
-                        <p class="text-slate-400 font-medium mt-1">Qwen 架构师级单案深度剖析</p>
+                        <p class="text-slate-400 font-medium mt-1 tracking-wide">Qwen 架构师级单案深度剖析</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                    <div class="h-full rounded-[2rem] bg-gradient-to-br from-rose-500 to-purple-600 transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(244,63,94,0.4)] group p-[2px]">
-                        <div class="bg-[#1a1a1a] h-full w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.98] relative overflow-hidden flex flex-col">
-                            <h3 class="text-xl font-bold text-rose-400 mb-5 flex items-center shrink-0">
-                                <div class="w-10 h-10 rounded-xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-700/50 text-xl shadow-sm">🚨</div> 
-                                痛点诊断
-                            </h3>
-                            <p class="text-rose-100/80 leading-relaxed font-medium text-[15px] grow">${analysis['痛点诊断']}</p>
-                        </div>
+                    
+                    <div class="h-full bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-rose-500/40 hover:shadow-[0_0_30px_rgba(244,63,94,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                        <div class="absolute -top-20 -right-20 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
+                        
+                        <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-500/30 text-rose-400 text-xl shadow-[0_0_15px_rgba(244,63,94,0.2)]">🚨</div> 
+                            <span class="group-hover:text-rose-400 transition-colors">痛点诊断</span>
+                        </h3>
+                        <p class="text-slate-300 leading-relaxed font-medium text-[15px] grow relative z-10">${analysis['痛点诊断']}</p>
                     </div>
                     
-                    <div class="h-full rounded-[2rem] bg-gradient-to-br from-[#00ff75] to-[#3700ff] transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(0,255,117,0.4)] group p-[2px]">
-                        <div class="bg-[#1a1a1a] h-full w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.98] relative overflow-hidden flex flex-col">
-                            <h3 class="text-xl font-bold text-[#00ff75] mb-5 flex items-center shrink-0">
-                                <div class="w-10 h-10 rounded-xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-[#00ff75]/30 text-xl shadow-sm">💡</div> 
-                                解决方案
-                            </h3>
-                            <p class="text-emerald-100/80 leading-relaxed font-medium text-[15px] whitespace-pre-line grow">${analysis['解决方案']}</p>
-                        </div>
+                    <div class="h-full bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                        <div class="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
+
+                        <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl shadow-[0_0_15px_rgba(16,185,129,0.2)]">💡</div> 
+                            <span class="group-hover:text-emerald-400 transition-colors">解决方案</span>
+                        </h3>
+                        <p class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10">${analysis['解决方案']}</p>
                     </div>
                 </div>
 
-                <div class="rounded-[2rem] bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-600 transition-all duration-300 hover:shadow-[0_0_30px_1px_rgba(6,182,212,0.4)] group p-[2px]">
-                    <div class="bg-[#1a1a1a] w-full rounded-[calc(2rem-2px)] p-8 transition-transform duration-300 group-hover:scale-[0.99] relative overflow-hidden flex flex-col">
-                        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/10 blur-[50px] pointer-events-none"></div>
-
-                        <h3 class="text-xl font-bold text-cyan-400 mb-5 flex items-center relative z-10">
-                            <div class="w-10 h-10 rounded-xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-700/50 text-xl shadow-sm">📌</div> 
-                            提取事实原文
-                        </h3>
-                        <div class="relative z-10 pl-6 border-l-4 border-cyan-400 bg-gradient-to-r from-cyan-900/20 to-transparent py-5 pr-4 rounded-r-2xl group-hover:border-indigo-400 transition-colors duration-300">
-                            <p class="text-slate-300 italic leading-relaxed font-medium text-[15px]">${analysis['事实']}</p>
-                        </div>
+                <div class="bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                    <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center relative z-10">
+                        <div class="w-12 h-12 rounded-2xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-500/30 text-cyan-400 text-xl shadow-[0_0_15px_rgba(6,182,212,0.2)]">📌</div> 
+                        <span class="group-hover:text-cyan-400 transition-colors">提取事实原文</span>
+                    </h3>
+                    
+                    <div class="relative z-10 pl-6 border-l-4 border-cyan-500/50 bg-cyan-900/10 py-5 pr-6 rounded-r-2xl group-hover:border-cyan-400 transition-colors duration-300">
+                        <p class="text-slate-400 italic leading-relaxed font-medium text-[15px]">${analysis['事实']}</p>
                     </div>
                 </div>
             </div>
@@ -216,7 +246,7 @@ function renderChangelog(logs) {
     if (!container) return;
 
     let html = `
-       <div class="bg-slate-900/0 backdrop-blur-sm rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden animate-[fadeIn_0.8s_ease-out]">
+       <div class="bg-slate-900/0 rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden animate-[fadeIn_0.8s_ease-out]">
            <div class="px-10 py-8 border-b border-white/10 bg-slate-900/50 flex items-center">
 
                 <div>
@@ -264,49 +294,101 @@ async function fetchHistory() {
     }
 }
 
-function renderHistory(tasks) {
+// --- 记忆持久化：带模式过滤的极简历史记录 ---
+
+// 1. 引入全局状态，记忆当前数据和选中的 Tab
+let globalHistoryTasks = [];
+let currentHistoryTab = 'batch_processing_subgraph'; // 默认开机显示批处理记录
+
+async function fetchHistory() {
+    try {
+        const response = await fetch('/api/v1/tasks');
+        globalHistoryTasks = await response.json();
+        renderHistory(); // 数据拉取后，触发一次过滤渲染
+    } catch (error) {
+        console.error("加载历史记录失败:", error);
+    }
+}
+
+// 2. 核心绑定的切换动作
+window.switchHistoryTab = function(mode) {
+    currentHistoryTab = mode;
+    renderHistory(); // 切换 Tab 时瞬间重新画 UI
+};
+
+function renderHistory() {
     const container = document.getElementById('history-zone');
-    if (!container || tasks.length === 0) return;
+    if (!container || globalHistoryTasks.length === 0) {
+        if(container) container.innerHTML = '';
+        return;
+    }
+
+    // 3. 动态过滤出当前模式的数据（刚建立的未知任务两边都展示，防止丢失）
+    const filteredTasks = globalHistoryTasks.filter(task => {
+        if (task.mode === 'unknown') return true; 
+        return task.mode === currentHistoryTab;
+    });
+
+    // 4. 极致的切换按钮样式计算 (选中时泛起靛蓝色，未选中时低调隐形)
+    const batchBtnClass = currentHistoryTab === 'batch_processing_subgraph' 
+        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 shadow-[0_0_10px_rgba(79,70,229,0.2)]' 
+        : 'text-slate-500 hover:text-slate-300 border-transparent';
+        
+    const deepBtnClass = currentHistoryTab === 'deep_analysis_subgraph' 
+        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 shadow-[0_0_10px_rgba(79,70,229,0.2)]' 
+        : 'text-slate-500 hover:text-slate-300 border-transparent';
 
     let html = `
-        <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden mb-8">
-            <div class="px-10 py-6 border-b border-white/10 bg-slate-900/50 flex items-center">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-900/40 text-indigo-400 flex items-center justify-center text-2xl mr-5 shadow-[0_0_15px_rgba(79,70,229,0.2)] border border-indigo-500/30">💾</div>
-                <div>
-                    <h2 class="text-xl font-bold text-slate-50 tracking-tight">历史研讨记录</h2>
-                    <p class="text-xs text-slate-400 font-medium mt-1">点击卡片直接恢复过去的分析报告</p>
+        <div class="bg-slate-900/40 rounded-[1.5rem] shadow-lg border border-white/10 overflow-hidden mb-8 animate-[fadeIn_0.5s_ease-out]">
+            
+            <div class="px-6 py-4 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center">
+                        <span class="text-indigo-400 mr-2.5 text-lg">💾</span>
+                        <h2 class="text-sm font-bold text-slate-200 tracking-tight hidden md:block">档案库</h2>
+                    </div>
+                    
+                    <div class="flex bg-slate-950/60 p-1 rounded-xl border border-white/5 shadow-inner">
+                        <button onclick="switchHistoryTab('batch_processing_subgraph')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border ${batchBtnClass}">批处理模式</button>
+                        <button onclick="switchHistoryTab('deep_analysis_subgraph')" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border ${deepBtnClass}">深度研讨模式</button>
+                    </div>
                 </div>
+                
+                <span class="text-[9px] font-mono text-slate-500 uppercase tracking-widest">${filteredTasks.length} RECORDS</span>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            <div class="p-2 space-y-1 max-h-64 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-slate-700/50 [&::-webkit-scrollbar-thumb]:rounded-full">
     `;
 
-    tasks.forEach(task => {
-        // 解析时间戳，让显示更人性化
-        const dateObj = new Date(task.created_at + 'Z'); 
-        const timeStr = `${dateObj.getMonth()+1}-${dateObj.getDate()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-        
-        const isSuccess = task.status === 'completed';
-        const statusColor = isSuccess ? 'text-emerald-400' : (task.status === 'running' ? 'text-amber-400' : 'text-rose-400');
-        const statusText = isSuccess ? '分析完成' : (task.status === 'running' ? '处理中...' : '解析失败');
+    if (filteredTasks.length === 0) {
+        html += `<div class="text-center text-slate-500 text-xs py-8 font-medium">此模式下暂无归档记录</div>`;
+    } else {
+        filteredTasks.forEach(task => {
+            const dateObj = new Date(task.created_at + 'Z'); 
+            const timeStr = `${dateObj.getMonth()+1}/${dateObj.getDate()} ${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+            const isSuccess = task.status === 'completed';
+            const isRunning = task.status === 'running';
+            const statusColor = isSuccess ? 'bg-emerald-500' : (isRunning ? 'bg-amber-500' : 'bg-rose-500');
+            const statusGlow = isSuccess ? 'shadow-[0_0_8px_rgba(16,185,129,0.4)]' : (isRunning ? 'shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'shadow-[0_0_8px_rgba(244,63,94,0.4)]');
 
-        html += `
-            <div onclick="loadHistoricalTask('${task.id}')" class="cursor-pointer group relative bg-slate-800/50 hover:bg-slate-700/60 border border-white/5 hover:border-indigo-500/50 rounded-2xl p-4 transition-all duration-300 overflow-hidden">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-mono text-slate-400 group-hover:text-slate-300">ID: ${task.id.substring(0, 6)}...</span>
-                    <span class="text-xs font-bold ${statusColor}">${statusText}</span>
+            html += `
+                <div onclick="loadHistoricalTask('${task.id}')" 
+                     class="group flex items-center justify-between px-4 py-2 rounded-xl bg-transparent hover:bg-white/5 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/5">
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="w-1.5 h-1.5 rounded-full ${statusColor} ${statusGlow}"></div>
+                        <span class="text-[11px] font-mono text-slate-500 group-hover:text-indigo-400 transition-colors uppercase">#${task.id.substring(0, 6)}</span>
+                    </div>
+
+                    <span class="text-[11px] font-medium text-slate-500 group-hover:text-slate-300 transition-colors tracking-tight">${timeStr}</span>
                 </div>
-                <div class="text-sm font-medium text-slate-300 mt-2 flex items-center">
-                    <span class="mr-2 opacity-60">🕒</span> ${timeStr}
-                </div>
-                <div class="absolute inset-0 border-2 border-transparent group-hover:border-indigo-500/20 rounded-2xl pointer-events-none transition-all"></div>
-            </div>
-        `;
-    });
+            `;
+        });
+    }
 
     html += `</div></div>`;
     container.innerHTML = html;
 }
-
 // 点击历史任务，直接拉取报告并渲染
 async function loadHistoricalTask(taskId) {
     // 滚动到顶部，准备展示结果

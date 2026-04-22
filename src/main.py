@@ -158,9 +158,29 @@ async def get_task_status(task_id: str):
         if status == "failed":
             raise HTTPException(status_code=500, detail=data.get("error", "大模型处理失败"))
         return {"status": status, "result": data.get("result")}
+# 修改 src/main.py 中的 get_history_tasks 接口
 @app.get("/api/v1/tasks")
 async def get_history_tasks():
     with get_db() as conn:
-        # 按时间倒序，最多取最近 20 条
-        rows = conn.execute("SELECT id, status, created_at FROM tasks ORDER BY created_at DESC LIMIT 20").fetchall()
-        return [{"id": row["id"], "status": row["status"], "created_at": row["created_at"]} for row in rows]
+        # 1. SQL 增加拉取 data 字段，并且把上限提高到 50 条
+        rows = conn.execute("SELECT id, status, created_at, data FROM tasks ORDER BY created_at DESC LIMIT 50").fetchall()
+        
+        results = []
+        for row in rows:
+            mode = "unknown"
+            try:
+                # 2. 从 JSON 字符串中动态嗅探它的工作模式
+                data_dict = json.loads(row["data"])
+                if "result" in data_dict and data_dict["result"]:
+                    # 提取 current_node，它决定了是批处理还是深度研讨
+                    mode = data_dict["result"].get("current_node", "unknown")
+            except:
+                pass
+                
+            results.append({
+                "id": row["id"], 
+                "status": row["status"], 
+                "created_at": row["created_at"],
+                "mode": mode  # 3. 将 mode 连同数据一起发给前端
+            })
+        return results
