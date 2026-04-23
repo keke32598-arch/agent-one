@@ -144,9 +144,7 @@ function renderResult(data) {
     resultZone.innerHTML = ""; 
     
     // ================= 批处理模式渲染 =================
-    if (data.current_node === 'batch_processing_subgraph') {
-        
-        // 极客优化：把数据存入内存，不再往 HTML 标签里硬塞巨型字符串！
+if (data.current_node === 'batch_processing_subgraph') {
         currentBatchData = data.batch_results;
 
         let tableHTML = `
@@ -169,6 +167,13 @@ function renderResult(data) {
                             </svg>
                             <span class="font-bold text-sm">导出 Excel</span>
                         </button>
+                    </div>
+
+                    <div class="px-10 py-6 border-b border-white/5 bg-slate-900/20 relative">
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+                            <span class="text-6xl font-black italic tracking-widest text-indigo-500">DISTRIBUTION</span>
+                        </div>
+                        <div id="batch-chart" class="w-full h-64 relative z-10"></div>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -199,7 +204,10 @@ function renderResult(data) {
         });
         tableHTML += `</tbody></table></div></div></div>`;
         resultZone.innerHTML = tableHTML;
-        
+        // 【核心新增】：等待 DOM 渲染完毕后，提取内存数据画图
+        setTimeout(() => {
+            renderBatchChart(currentBatchData);
+        }, 50);
     // ================= 深度研讨模式渲染 (全息亚克力版) =================
     } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
@@ -474,4 +482,73 @@ async function exportToExcel(btnElement) {
         console.error("导出失败:", error);
         alert("导出失败，请检查控制台");
     }
+}
+
+// --- 数据看板：渲染带微光特效的分类统计环形图 ---
+function renderBatchChart(dataList) {
+    const chartDom = document.getElementById('batch-chart');
+    if (!chartDom) return;
+
+    // 1. 自动聚合数据：计算每个分类有多少条
+    const categoryCounts = {};
+    dataList.forEach(item => {
+        // 如果分类是空的或者未定义，给个默认值
+        const cat = item.category || '未分类';
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+
+    const chartData = Object.keys(categoryCounts).map(key => ({
+        name: key,
+        value: categoryCounts[key]
+    }));
+
+    // 2. 初始化 ECharts 实例
+    const myChart = echarts.init(chartDom);
+
+    // 3. 极客赛博风格配置
+    const option = {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'item',
+            backgroundColor: 'rgba(15, 23, 42, 0.9)', // 极深蓝底色
+            borderColor: 'rgba(99, 102, 241, 0.4)', // 靛蓝边框
+            textStyle: { color: '#f8fafc' },
+            formatter: '{b}: {c} 项 ({d}%)' // 悬停显示名称、数量和百分比
+        },
+        legend: {
+            top: 'middle',
+            right: '5%',
+            orient: 'vertical',
+            textStyle: { color: '#cbd5e1', fontSize: 14, fontWeight: 'bold' },
+            icon: 'circle',
+            itemGap: 20
+        },
+        // 赛博霓虹色系：靛蓝、祖母绿、玫瑰红、天蓝、琥珀黄
+        color: ['#6366f1', '#10b981', '#f43f5e', '#0ea5e9', '#f59e0b', '#8b5cf6'],
+        series: [
+            {
+                name: '客诉分类',
+                type: 'pie',
+                radius: ['55%', '85%'], // 设置为环形图 (甜甜圈形状)
+                center: ['35%', '50%'], // 整体偏左一点，把右边留给图例
+                avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 15, // 圆角切割
+                    borderColor: 'rgba(15, 23, 42, 0.8)', // 玻璃缝隙
+                    borderWidth: 4,
+                    // 【核心质感】：悬浮发光特效
+                    shadowBlur: 20,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                },
+                label: { show: false }, // 隐藏自带的标签，保持极简
+                labelLine: { show: false },
+                data: chartData
+            }
+        ]
+    };
+
+    myChart.setOption(option);
+
+    // 监听浏览器窗口缩放，让图表永远保持响应式自适应
+    window.addEventListener('resize', () => myChart.resize());
 }
