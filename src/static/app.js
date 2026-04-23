@@ -208,8 +208,8 @@ if (data.current_node === 'batch_processing_subgraph') {
         setTimeout(() => {
             renderBatchChart(currentBatchData);
         }, 50);
-    // ================= 深度研讨模式渲染 (全息亚克力版) =================
-    } else if (data.current_node === 'deep_analysis_subgraph') {
+    // ================= 深度研讨模式渲染 (全息亚克力 + 流式打字机版) =================
+   } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
         resultZone.innerHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards] space-y-6">
@@ -228,7 +228,7 @@ if (data.current_node === 'batch_processing_subgraph') {
                             <div class="w-12 h-12 rounded-2xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-500/30 text-rose-400 text-xl shadow-[0_0_15px_rgba(244,63,94,0.2)]">🚨</div> 
                             <span class="group-hover:text-rose-400 transition-colors">痛点诊断</span>
                         </h3>
-                        <p class="text-slate-300 leading-relaxed font-medium text-[15px] grow relative z-10">${analysis['痛点诊断']}</p>
+                        <p id="stream-pain" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10"></p>
                     </div>
                     
                     <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
@@ -237,7 +237,7 @@ if (data.current_node === 'batch_processing_subgraph') {
                             <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl shadow-[0_0_15px_rgba(16,185,129,0.2)]">💡</div> 
                             <span class="group-hover:text-emerald-400 transition-colors">解决方案</span>
                         </h3>
-                        <p class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10">${analysis['解决方案']}</p>
+                        <p id="stream-solution" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10"></p>
                     </div>
                 </div>
 
@@ -247,11 +247,22 @@ if (data.current_node === 'batch_processing_subgraph') {
                         <span class="group-hover:text-cyan-400 transition-colors">提取事实原文</span>
                     </h3>
                     <div class="relative z-10 pl-6 border-l-4 border-cyan-500/50 bg-cyan-900/10 py-5 pr-6 rounded-r-2xl group-hover:border-cyan-400 transition-colors duration-300">
-                        <p class="text-slate-400 italic leading-relaxed font-medium text-[15px]">${analysis['事实']}</p>
+                        <p id="stream-fact" class="text-slate-400 italic leading-relaxed font-medium text-[15px]"></p>
                     </div>
                 </div>
             </div>
         `;
+        // 【核心触发】：利用回调函数，实现“接力赛”式的逐个打印！
+        setTimeout(() => {
+            // 先打印“事实” (速度 25ms/字)
+            typeWriterEffect('stream-fact', analysis['事实'], 25, () => {
+                // 事实打印完后，打印“痛点” (稍微放慢，30ms/字，营造深思熟虑感)
+                typeWriterEffect('stream-pain', analysis['痛点诊断'], 30, () => {
+                    // 最后打印“解决方案” (提速，20ms/字，雷厉风行)
+                    typeWriterEffect('stream-solution', analysis['解决方案'], 20);
+                });
+            });
+        }, 300); // 留出 300ms 给卡片本身的淡入动画
     }
 }
 // --- Task 3: 异步获取并渲染日志 ---
@@ -551,4 +562,42 @@ function renderBatchChart(dataList) {
 
     // 监听浏览器窗口缩放，让图表永远保持响应式自适应
     window.addEventListener('resize', () => myChart.resize());
+}
+
+// --- 流式输出：异步黑客打字机引擎 ---虚假流式输出，模拟真实打字效果
+function typeWriterEffect(elementId, text, baseSpeed, callback) {
+    const element = document.getElementById(elementId);
+    if (!element || !text) {
+        if (callback) callback();
+        return;
+    }
+    
+    element.innerHTML = ""; // 清空原有内容
+    let i = 0;
+    
+    // 添加一个赛博朋克光标
+    const cursor = document.createElement('span');
+    cursor.className = 'inline-block w-2 h-4 ml-1 bg-indigo-500 animate-pulse';
+    element.appendChild(cursor);
+
+    function type() {
+        if (i < text.length) {
+            // 在光标前面插入文字，完美支持换行符 \n
+            const char = text.charAt(i);
+            const textNode = document.createTextNode(char);
+            element.insertBefore(textNode, cursor);
+            
+            i++;
+            // 引入随机延迟 (±10ms)，模拟真实的打字机节奏
+            const randomSpeed = baseSpeed + (Math.random() * 20 - 10);
+            setTimeout(type, randomSpeed);
+        } else {
+            // 打字结束，移除光标，并执行下一个动作
+            cursor.remove();
+            if (callback) callback();
+        }
+    }
+    
+    // 稍微延迟一下再开始敲字，感觉更真实
+    setTimeout(type, 200);
 }
