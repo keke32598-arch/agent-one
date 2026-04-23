@@ -1,35 +1,40 @@
 # src/main.py
-
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, List
 import os
 import shutil
+import sqlite3
+import json
+from datetime import datetime, timedelta
+import jwt  # 引入 JWT
 
 from src.agent.state import AgentState
 from src.agent.graph import build_agent_graph
-from src.utils.parser import parse_document  # 引入刚才写的统一解析器
-
+from src.utils.parser import parse_document
 from pydantic import BaseModel
-from typing import List, Dict, Any
 import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
-from fastapi import HTTPException
 
-# src/main.py 顶部新增
-import sqlite3
-import json
-from datetime import datetime
+# --- JWT 鉴权全局配置 ---
+SECRET_KEY = "lk-agent-super-secret-key-2026"  # 生产环境中应写入 .env
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # Token 有效期 1 天
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
 def get_db():
     conn = sqlite3.connect("tasks.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
+# --- 数据库 2.0：引入用户表与工单流转表 ---
 def init_db():
     with get_db() as conn:
+        # 1. 保留原有的 AI 分析任务表
         conn.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY,
@@ -38,17 +43,57 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-init_db()  # 启动时自动建表
+        # 2. 新增：用户账号表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                password TEXT,
+                role TEXT,
+                department TEXT
+            )
+        ''')
+        # 3. 新增：业务工单流转表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS work_orders (
+                id TEXT PRIMARY KEY,
+                parent_task_id TEXT,
+                assignee_dept TEXT,
+                status TEXT,
+                proof_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # 4. 系统启动时，自动注入三个默认测试账号
+        boss = conn.execute("SELECT * FROM users WHERE username='boss'").fetchone()
+        if not boss:
+            # 账号：boss / 密码：123456 (角色：店长)
+            conn.execute("INSERT INTO users (username, password, role, department) VALUES ('boss', '123456', 'boss', 'management')")
+            # 账号：staff1 / 密码：123456 (角色：员工，部门：财务部)
+            conn.execute("INSERT INTO users (username, password, role, department) VALUES ('staff1', '123456', 'staff', '财务部')")
+            # 账号：staff2 / 密码：123456 (角色：员工，部门：物流组)
+            conn.execute("INSERT INTO users (username, password, role, department) VALUES ('staff2', '123456', 'staff', '物流组')")
 
+init_db()  # 启动时自动建表与注入数据
 
+app = FastAPI(title="LK-Agent Enterprise API")
 
-
-
-app = FastAPI(title="Customer Service Agent API")
+# ... (下方保留你原有的 VERSION_LOGS, TASK_STORE 和其他所有接口) ...
 
 
 # 定义更新日志数据与接口 
 VERSION_LOGS = [
+    
+    {
+        "date": "2026-04-23", 
+        "version": "v2.0版本启动", 
+        "content": "2.0版本马上启动，会包括老板端和员工端，实现企业级SaaS 系统"
+    }, {
+        "date": "2026-04-23", 
+        "version": "v1.0完结！", 
+        "content": "今天是个好日子，v1.0版本已经做完了，它基本实现了该有的功能，包括上传文档、分析文档、给出解决方案。"
+    }, 
     {
         "date": "2026-04-22", 
         "version": "新增功能", 
@@ -236,3 +281,34 @@ async def export_batch_results(req: ExportRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+
+        # --- 鉴权中心：登录与颁发 Token ---
+@app.post("/api/v1/auth/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    with get_db() as conn:
+        # 1. 校验账号密码
+        user = conn.execute("SELECT * FROM users WHERE username=? AND password=?", 
+                            (form_data.username, form_data.password)).fetchone()
+        if not user:
+            raise HTTPException(status_code=400, detail="账号或密码错误！")
+        
+        # 2. 制作专属 JWT 令牌，将角色和部门烙印在 Token 里
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + access_token_expires
+        to_encode = {
+            "sub": user["username"], 
+            "role": user["role"], 
+            "department": user["department"],
+            "exp": expire
+        }
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        
+        # 3. 发放令牌给前端
+        return {
+            "access_token": encoded_jwt, 
+            "token_type": "bearer", 
+            "role": user["role"],
+            "department": user["department"]
+        }
