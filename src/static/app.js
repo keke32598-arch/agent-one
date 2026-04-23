@@ -1,3 +1,127 @@
+// 登录界面--- 鉴权与路由流转控制 ---
+async function handleLogin() {
+    const userIn = document.getElementById('username').value;
+    const passIn = document.getElementById('password').value;
+    const btn = document.getElementById('login-btn');
+    const errObj = document.getElementById('login-error');
+    
+    btn.innerHTML = `<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>`;
+    btn.disabled = true;
+    errObj.classList.add('hidden');
+
+    try {
+        // FastAPI 的 OAuth2PasswordRequestForm 要求使用 URLSearchParams (表单形式)
+        const params = new URLSearchParams();
+        params.append('username', userIn);
+        params.append('password', passIn);
+
+        const res = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params
+        });
+
+        if (!res.ok) throw new Error("账号或密码错误");
+
+        const data = await res.json();
+        
+        // 【核心】：将数字钥匙存入浏览器本地
+        localStorage.setItem('lk_token', data.access_token);
+        localStorage.setItem('lk_role', data.role);
+        localStorage.setItem('lk_dept', data.department);
+
+        // 登录成功，执行场景分发
+        enterWorkspace(data.role, data.department);
+
+    } catch (err) {
+        errObj.innerText = err.message;
+        errObj.classList.remove('hidden');
+        btn.innerHTML = `<span>系统登入</span>`;
+        btn.disabled = false;
+    }
+}
+
+// 根据身份进入不同的工作台
+function enterWorkspace(role, dept) {
+    // 1. 隐藏登录大门
+    const overlay = document.getElementById('login-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.classList.add('hidden'), 500);
+
+    // 2. 显示主工作区
+    const appContainer = document.getElementById('app-container');
+    appContainer.classList.remove('hidden');
+
+    // 3. 动态调整 UI 欢迎语
+    const headerTitle = document.querySelector('header h1');
+    const headerDesc = document.querySelector('header p');
+    
+    if (role === 'boss') {
+        headerTitle.innerHTML = `<span class="text-indigo-400">店长</span>全局控制台`;
+        headerDesc.innerText = `当前登录: Boss (最高权限) | 掌控全局工单分发与 AI 深度分析`;
+        if (typeof fetchHistory === 'function') fetchHistory();
+    } else {
+        headerTitle.innerHTML = `<span class="text-amber-400">执行端</span>工作台`;
+        headerDesc.innerText = `当前登录: ${dept} | 请及时处理店长派发的工单`;
+        
+        // 隐藏不属于员工的区域
+        document.getElementById('upload-zone').classList.add('hidden');
+        document.getElementById('history-zone').classList.add('hidden');
+        
+        // 触发拉取该员工所在部门的专属工单
+        loadStaffTasks(); 
+    }
+}
+
+// --- 核心：拉取并渲染员工专属任务池 ---
+async function loadStaffTasks() {
+    const resultZone = document.getElementById('result-zone');
+    resultZone.innerHTML = `<div class="text-center text-amber-400 animate-pulse my-10 font-bold tracking-widest">正在同步部门工单数据...</div>`;
+    
+    const token = localStorage.getItem('lk_token');
+    
+    try {
+        const response = await fetch('/api/v1/workorders', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error("无法拉取工单");
+        
+        const tasks = await response.json();
+        
+        if (tasks.length === 0) {
+            resultZone.innerHTML = `<div class="text-center text-slate-500 my-20 font-bold border border-white/5 rounded-2xl bg-slate-900/40 p-10">🎉 太棒了，当前部门没有待处理的工单！</div>`;
+            return;
+        }
+
+        // 极简风的员工任务列表渲染
+        let html = `<div class="space-y-4 animate-[fadeIn_0.5s_ease-out_forwards]">`;
+        tasks.forEach(task => {
+            html += `
+                <div class="bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 p-6 flex justify-between items-center hover:border-amber-500/40 transition-all">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="w-2.5 h-2.5 rounded-full ${task.status === '待处理' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}"></span>
+                            <h3 class="text-slate-100 font-bold text-lg">关联客诉指令: #${task.parent_task_id.substring(0,8)}</h3>
+                        </div>
+                        <p class="text-slate-400 text-sm">系统单号: ${task.id} | 下达时间: ${task.created_at}</p>
+                    </div>
+                    <button class="bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/30 text-amber-400 px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg hover:shadow-amber-500/20">
+                        开始处理
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+        resultZone.innerHTML = html;
+        
+    } catch (error) {
+        resultZone.innerHTML = `<div class="text-center text-rose-400 my-10">数据同步失败：${error.message}</div>`;
+    }
+}
+
+
 // 获取 DOM 元素
 const btnBatch = document.getElementById('btn-batch');
 const btnDeep = document.getElementById('btn-deep');
@@ -237,6 +361,7 @@ if (data.current_node === 'batch_processing_subgraph') {
                             <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl shadow-[0_0_15px_rgba(16,185,129,0.2)]">💡</div> 
                             <span class="group-hover:text-emerald-400 transition-colors">解决方案</span>
                         </h3>
+                        
                         <p id="stream-solution" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10"></p>
                     </div>
                 </div>
@@ -600,4 +725,82 @@ function typeWriterEffect(elementId, text, baseSpeed, callback) {
     
     // 稍微延迟一下再开始敲字，感觉更真实
     setTimeout(type, 200);
+}
+
+// --- 业务流转：老板端发起派单 (真·数据请求版) ---
+async function dispatchTask(taskId) {
+    const roleSelector = document.getElementById('role-selector');
+    if (!roleSelector) return;
+    
+    const targetDept = roleSelector.value;
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = `<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>`;
+    btn.disabled = true;
+
+    try {
+        const token = localStorage.getItem('lk_token');
+        if (!token) throw new Error("登录已失效，请重新登录");
+
+        const response = await fetch('/api/v1/workorders', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({
+                parent_task_id: taskId,
+                assignee_dept: targetDept,
+                instructions: "请依据 AI 诊断报告尽快执行处理闭环。"
+            })
+        });
+
+        if (!response.ok) throw new Error("派单失败");
+
+        btn.innerHTML = "已成功派发 ✓";
+        btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+    } catch (error) {
+        alert(error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// --- 业务流转：员工端拉取专属任务 ---
+async function loadStaffTasks() {
+    const resultZone = document.getElementById('result-zone');
+    resultZone.innerHTML = `<div class="text-center text-amber-400 animate-pulse my-10 font-bold tracking-widest">正在同步部门工单数据...</div>`;
+    
+    const token = localStorage.getItem('lk_token');
+    try {
+        const response = await fetch('/api/v1/workorders', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const tasks = await response.json();
+        
+        if (tasks.length === 0) {
+            resultZone.innerHTML = `<div class="text-center text-slate-500 my-20 font-bold border border-white/5 rounded-2xl bg-slate-900/40 p-10">🎉 当前部门没有待处理的工单</div>`;
+            return;
+        }
+
+        let html = `<div class="space-y-4 animate-[fadeIn_0.5s_ease-out]">`;
+        tasks.forEach(task => {
+            html += `
+                <div class="bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 p-6 flex justify-between items-center hover:border-amber-500/40 transition-all">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="w-2.5 h-2.5 rounded-full ${task.status === '待处理' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}"></span>
+                            <h3 class="text-slate-100 font-bold text-lg">关联客诉: #${task.parent_task_id.substring(0,8)}</h3>
+                        </div>
+                        <p class="text-slate-400 text-sm">单号: ${task.id} | 下达: ${task.created_at}</p>
+                    </div>
+                    <button class="bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/30 text-amber-400 px-6 py-2.5 rounded-xl font-bold">开始处理</button>
+                </div>`;
+        });
+        resultZone.innerHTML = html + `</div>`;
+    } catch (error) {
+        resultZone.innerHTML = `<div class="text-center text-rose-400 my-10">数据同步失败</div>`;
+    }
 }

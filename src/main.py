@@ -31,6 +31,20 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+# --- 核心拦截器：解析请求头中的 JWT 令牌 ---
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="无效或过期的数字令牌，请重新登录")
+
+# 接收前端派单请求的数据结构
+class WorkOrderCreate(BaseModel):
+    parent_task_id: str
+    assignee_dept: str
+    instructions: str = "请尽快处理该客诉"
+
 # --- 数据库 2.0：引入用户表与工单流转表 ---
 def init_db():
     with get_db() as conn:
