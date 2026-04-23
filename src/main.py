@@ -189,3 +189,44 @@ async def get_history_tasks():
                 "mode": mode  # 3. 将 mode 连同数据一起发给前端
             })
         return results
+
+
+# src/main.py 到处接口
+import pandas as pd
+import io
+from fastapi.responses import StreamingResponse
+
+# --- Task 1: 生产力导出接口 ---
+@app.post("/api/v1/export/batch")
+async def export_batch_results(results: list):
+    """将 AI 处理结果转换为 Excel 下载流"""
+    try:
+        # 1. 转换为 DataFrame
+        df = pd.DataFrame(results)
+        
+        # 2. 映射表头，让导出的表格更专业
+        column_mapping = {
+            "original": "原始文本",
+            "category": "分类标签",
+            "suggestion": "AI 处理建议"
+        }
+        df = df.rename(columns=column_mapping)
+        
+        # 3. 在内存中构建 Excel 文件
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='AI分析结果')
+            
+        output.seek(0)
+        
+        # 4. 返回流式响应
+        headers = {
+            'Content-Disposition': 'attachment; filename="analysis_report.xlsx"'
+        }
+        return StreamingResponse(
+            output, 
+            headers=headers, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")

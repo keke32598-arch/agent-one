@@ -136,36 +136,55 @@ async function pollStatus(taskId) {
 
 // src/static/app.js (完全体：全卡片 Uiverse 高级特效渲染)
 
+// --- 核心渲染函数：完全体（融合了发光下载按钮与全息亚克力卡片） ---
 function renderResult(data) {
     const resultZone = document.getElementById('result-zone');
     resultZone.innerHTML = ""; 
     
     // ================= 批处理模式渲染 =================
     if (data.current_node === 'batch_processing_subgraph') {
+        // 【Bug修复】：处理 JSON 里的单引号和双引号转义问题，防止 HTML 标签断裂
+        const safeDataForBtn = JSON.stringify(data.batch_results)
+            .replace(/'/g, "&#39;")
+            .replace(/"/g, "&quot;");
+
         let tableHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-                <div class="bg-slate-800/10 rounded-[2rem] shadow-xl shadow-black/30 border border-slate-700/80 overflow-hidden">
-                    <div class="px-8 py-6 border-b border-slate-700/80 bg-slate-800/10 flex items-center">
-                        <div class="w-12 h-12 rounded-2xl bg-indigo-900/50 text-indigo-400 flex items-center justify-center text-2xl mr-5 shadow-[0_0_15px_rgba(79,70,229,0.3)] border border-indigo-700/50">📊</div>
-                        <div>
-                            <h2 class="text-2xl font-bold text-slate-100 tracking-tight">批处理分类结果</h2>
-                            <p class="text-sm text-slate-400 font-medium mt-1">AI 已完成多行文本的智能打标与建议生成</p>
+                <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/10 overflow-hidden">
+                    
+                    <div class="px-10 py-8 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                        <div class="flex items-center">
+                            <div class="w-14 h-14 rounded-2xl bg-indigo-900/40 text-indigo-400 flex items-center justify-center text-3xl mr-6 shadow-[0_0_20px_rgba(79,70,229,0.2)] border border-indigo-500/30">📊</div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-100 tracking-tight">批处理分类结果</h2>
+                                <p class="text-sm text-slate-400 font-medium mt-1">AI 已完成多行文本的智能打标与建议生成</p>
+                            </div>
                         </div>
+                        
+                        <button onclick="exportToExcel('${safeDataForBtn}')" 
+                                class="flex items-center px-5 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 rounded-xl transition-all duration-300 group shadow-lg hover:shadow-indigo-500/20 shrink-0">
+                            <svg class="w-5 h-5 mr-2 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            <span class="font-bold text-sm">导出 Excel</span>
+                        </button>
                     </div>
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-800/50">
+                            <thead class="bg-slate-900/50">
                                 <tr>
                                     <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider w-1/2">原文本</th>
                                     <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider">分类标签</th>
                                     <th scope="col" class="px-8 py-5 text-sm font-bold text-slate-400 uppercase tracking-wider">AI 建议</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-700/50">
+                            <tbody class="divide-y divide-white/5">
         `;
+        
         data.batch_results.forEach(row => {
             tableHTML += `
-                                <tr class="hover:bg-indigo-900/20 transition-colors duration-200">
+                                <tr class="hover:bg-white/5 transition-colors duration-200">
                                     <td class="px-8 py-5 text-sm text-slate-300 font-medium leading-relaxed">${row.original}</td>
                                     <td class="px-8 py-5 text-sm whitespace-nowrap">
                                         <span class="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 shadow-sm">
@@ -180,7 +199,7 @@ function renderResult(data) {
         tableHTML += `</tbody></table></div></div></div>`;
         resultZone.innerHTML = tableHTML;
         
-// ================= 深度研讨模式渲染 (全息亚克力重构版) =================
+    // ================= 深度研讨模式渲染 (全息亚克力版) =================
     } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
         resultZone.innerHTML = `
@@ -194,10 +213,8 @@ function renderResult(data) {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                    
-                    <div class="h-full bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-rose-500/40 hover:shadow-[0_0_30px_rgba(244,63,94,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-rose-500/40 hover:shadow-[0_0_30px_rgba(244,63,94,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
                         <div class="absolute -top-20 -right-20 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
-                        
                         <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
                             <div class="w-12 h-12 rounded-2xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-500/30 text-rose-400 text-xl shadow-[0_0_15px_rgba(244,63,94,0.2)]">🚨</div> 
                             <span class="group-hover:text-rose-400 transition-colors">痛点诊断</span>
@@ -205,9 +222,8 @@ function renderResult(data) {
                         <p class="text-slate-300 leading-relaxed font-medium text-[15px] grow relative z-10">${analysis['痛点诊断']}</p>
                     </div>
                     
-                    <div class="h-full bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
                         <div class="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
-
                         <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
                             <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl shadow-[0_0_15px_rgba(16,185,129,0.2)]">💡</div> 
                             <span class="group-hover:text-emerald-400 transition-colors">解决方案</span>
@@ -216,12 +232,11 @@ function renderResult(data) {
                     </div>
                 </div>
 
-                <div class="bg-slate-900/40 rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
+                <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
                     <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-500/30 text-cyan-400 text-xl shadow-[0_0_15px_rgba(6,182,212,0.2)]">📌</div> 
                         <span class="group-hover:text-cyan-400 transition-colors">提取事实原文</span>
                     </h3>
-                    
                     <div class="relative z-10 pl-6 border-l-4 border-cyan-500/50 bg-cyan-900/10 py-5 pr-6 rounded-r-2xl group-hover:border-cyan-400 transition-colors duration-300">
                         <p class="text-slate-400 italic leading-relaxed font-medium text-[15px]">${analysis['事实']}</p>
                     </div>
@@ -416,3 +431,43 @@ window.addEventListener('DOMContentLoaded', () => {
     fetchHistory();
     // 如果之前有 fetchChangelog()，记得确保它们都能执行
 });
+
+// --- Task 3: 前端文件流下载逻辑 ---
+async function exportToExcel(results) {
+    try {
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "正在生成...";
+        btn.disabled = true;
+
+        const response = await fetch('/api/v1/export/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(results)
+        });
+
+        if (!response.ok) throw new Error("导出请求失败");
+
+        // 将返回的流转为 Blob
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        // 创建隐藏链接并触发下载
+        const a = document.createElement('a');
+        const timestamp = new Date().getTime();
+        a.href = url;
+        a.download = `LK_Analysis_Report_${timestamp}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    } catch (error) {
+        console.error("导出失败:", error);
+        alert("导出失败，请检查控制台");
+    }
+}
