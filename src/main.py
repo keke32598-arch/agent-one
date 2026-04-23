@@ -326,3 +326,63 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             "role": user["role"],
             "department": user["department"]
         }
+
+        # --- 业务流转：店长派发工单 ---
+@app.post("/api/v1/workorders")
+async def create_work_order(order: WorkOrderCreate, current_user: dict = Depends(get_current_user)):
+    # 鉴权：只有老板能派单
+    if current_user.get("role") != "boss":
+        raise HTTPException(status_code=403, detail="仅店长可执行派单操作！")
+    
+    wo_id = "WO-" + str(uuid.uuid4())[:8]
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO work_orders (id, parent_task_id, assignee_dept, status) VALUES (?, ?, ?, ?)",
+            (wo_id, order.parent_task_id, order.assignee_dept, "待处理")
+        )
+    return {"work_order_id": wo_id, "status": "success"}
+
+# --- 业务流转：员工拉取待办 ---
+@app.get("/api/v1/workorders")
+async def get_work_orders(current_user: dict = Depends(get_current_user)):
+    with get_db() as conn:
+        if current_user.get("role") == "boss":
+            rows = conn.execute("SELECT * FROM work_orders ORDER BY created_at DESC").fetchall()
+        else:
+            dept = current_user.get("department")
+            rows = conn.execute("SELECT * FROM work_orders WHERE assignee_dept=? ORDER BY created_at DESC", (dept,)).fetchall()
+    return [dict(row) for row in rows]
+
+    # --- 业务流转：员工上传处理证据并结案 ---
+@app.post("/api/v1/workorders/{wo_id}/resolve")
+async def resolve_work_order(
+    wo_id: str, 
+    file: UploadFile = File(...), 
+    current_user: dict = Depends(get_current_user)
+):
+    # 鉴权：只有执行端的员工才能结案
+    if current_user.get("role") != "staff":
+        raise HTTPException(status_code=403, detail="越权操作：仅员工可提交处理结果！")
+    
+    # 1. 确保证据存放目录存在
+    proof_dir = "src/static/proofs"
+    os.makedirs(proof_dir, exist_ok=True)
+    
+    # 2. 生成安全的文件名并保存到本地
+    safe_filename = f"{wo_id}_{uuid.uuid4().hex[:6]}.png"
+    file_path = os.path.join(proof_dir, safe_filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # 3. 得到可以通过 URL 访问的静态路径
+    proof_url = f"/static/proofs/{safe_filename}"
+    
+    # 4. 更新数据库状态为已结案
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE work_orders SET status=?, proof_url=? WHERE id=?",
+            ("已结案", proof_url, wo_id)
+        )
+        
+    return {"status": "success", "proof_url": proof_url, "msg": "任务已闭环"}

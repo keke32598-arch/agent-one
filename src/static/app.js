@@ -333,8 +333,25 @@ if (data.current_node === 'batch_processing_subgraph') {
             renderBatchChart(currentBatchData);
         }, 50);
     // ================= 深度研讨模式渲染 (全息亚克力 + 流式打字机版) =================
-   } else if (data.current_node === 'deep_analysis_subgraph') {
+// ================= 深度研讨模式渲染 (完全体：打字机 + 派单功能) =================
+    } else if (data.current_node === 'deep_analysis_subgraph') {
         const analysis = data.analysis_result;
+        
+        // 1. 构造派单 UI 控件
+        let dispatchUI = `
+            <div class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between opacity-0 animate-[fadeIn_0.5s_ease-out_3s_forwards]">
+                <select id="role-selector" class="bg-slate-950/60 border border-white/10 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500/50">
+                    <option value="财务部">分发至：财务部 (退款/补偿)</option>
+                    <option value="物流组">分发至：物流组 (补发/核实)</option>
+                    <option value="公关部">分发至：公关部 (深度安抚)</option>
+                </select>
+                <button onclick="dispatchTask('${data.task_id}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-6 py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+                    确认派单
+                </button>
+            </div>
+        `;
+
+        // 2. 渲染带空洞 (id="stream-xxx") 的卡片框架
         resultZone.innerHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards] space-y-6">
                 <div class="flex items-center px-4 mb-8">
@@ -346,48 +363,52 @@ if (data.current_node === 'batch_processing_subgraph') {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-rose-500/40 hover:shadow-[0_0_30px_rgba(244,63,94,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                        <div class="absolute -top-20 -right-20 w-40 h-40 bg-rose-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
+                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-rose-500/40 group flex flex-col">
                         <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
-                            <div class="w-12 h-12 rounded-2xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-500/30 text-rose-400 text-xl shadow-[0_0_15px_rgba(244,63,94,0.2)]">🚨</div> 
-                            <span class="group-hover:text-rose-400 transition-colors">痛点诊断</span>
+                            <div class="w-12 h-12 rounded-2xl bg-rose-900/30 flex items-center justify-center mr-4 border border-rose-500/30 text-rose-400 text-xl">🚨</div> 
+                            <span>痛点诊断</span>
                         </h3>
-                        <p id="stream-pain" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10"></p>
+                        <p id="stream-pain" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow"></p>
                     </div>
                     
-                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                        <div class="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-[50px] pointer-events-none transition-opacity opacity-50 group-hover:opacity-100"></div>
+                    <div class="h-full bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-emerald-500/40 group flex flex-col">
                         <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center shrink-0">
-                            <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl shadow-[0_0_15px_rgba(16,185,129,0.2)]">💡</div> 
-                            <span class="group-hover:text-emerald-400 transition-colors">解决方案</span>
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-900/30 flex items-center justify-center mr-4 border border-emerald-500/30 text-emerald-400 text-xl">💡</div> 
+                            <span>解决方案</span>
                         </h3>
-                        
-                        <p id="stream-solution" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow relative z-10"></p>
+                        <p id="stream-solution" class="text-slate-300 leading-relaxed font-medium text-[15px] whitespace-pre-line grow"></p>
+                        ${dispatchUI}
                     </div>
                 </div>
 
-                <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:-translate-y-1 group relative overflow-hidden flex flex-col">
-                    <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center relative z-10">
-                        <div class="w-12 h-12 rounded-2xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-500/30 text-cyan-400 text-xl shadow-[0_0_15px_rgba(6,182,212,0.2)]">📌</div> 
-                        <span class="group-hover:text-cyan-400 transition-colors">提取事实原文</span>
+                <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/10 p-8 transition-all duration-300 hover:border-cyan-500/40">
+                    <h3 class="text-xl font-bold text-slate-100 mb-6 flex items-center">
+                        <div class="w-12 h-12 rounded-2xl bg-cyan-900/30 flex items-center justify-center mr-4 border border-cyan-500/30 text-cyan-400 text-xl">📌</div> 
+                        <span>提取事实原文</span>
                     </h3>
-                    <div class="relative z-10 pl-6 border-l-4 border-cyan-500/50 bg-cyan-900/10 py-5 pr-6 rounded-r-2xl group-hover:border-cyan-400 transition-colors duration-300">
+                    <div class="pl-6 border-l-4 border-cyan-500/50 bg-cyan-900/10 py-5 pr-6 rounded-r-2xl">
                         <p id="stream-fact" class="text-slate-400 italic leading-relaxed font-medium text-[15px]"></p>
                     </div>
                 </div>
             </div>
         `;
-        // 【核心触发】：利用回调函数，实现“接力赛”式的逐个打印！
+
+        // 3. 核心：触发打字机接力赛
         setTimeout(() => {
-            // 先打印“事实” (速度 25ms/字)
-            typeWriterEffect('stream-fact', analysis['事实'], 25, () => {
-                // 事实打印完后，打印“痛点” (稍微放慢，30ms/字，营造深思熟虑感)
-                typeWriterEffect('stream-pain', analysis['痛点诊断'], 30, () => {
-                    // 最后打印“解决方案” (提速，20ms/字，雷厉风行)
-                    typeWriterEffect('stream-solution', analysis['解决方案'], 20);
+            // 确保打字机引擎函数还在
+            if (typeof typeWriterEffect === 'function') {
+                typeWriterEffect('stream-fact', analysis['事实'], 25, () => {
+                    typeWriterEffect('stream-pain', analysis['痛点诊断'], 30, () => {
+                        typeWriterEffect('stream-solution', analysis['解决方案'], 20);
+                    });
                 });
-            });
-        }, 300); // 留出 300ms 给卡片本身的淡入动画
+            } else {
+                // 如果打字机函数不幸被删了，做个安全兜底，直接显示文字
+                document.getElementById('stream-fact').innerText = analysis['事实'];
+                document.getElementById('stream-pain').innerText = analysis['痛点诊断'];
+                document.getElementById('stream-solution').innerText = analysis['解决方案'];
+            }
+        }, 300);
     }
 }
 // --- Task 3: 异步获取并渲染日志 ---
@@ -796,11 +817,59 @@ async function loadStaffTasks() {
                         </div>
                         <p class="text-slate-400 text-sm">单号: ${task.id} | 下达: ${task.created_at}</p>
                     </div>
-                    <button class="bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/30 text-amber-400 px-6 py-2.5 rounded-xl font-bold">开始处理</button>
+                        <button id="btn-${task.id}" onclick="resolveTask('${task.id}')" 
+                                class="${task.status === '待处理' ? 'bg-amber-600/20 hover:bg-amber-600/40 border-amber-500/30 text-amber-400' : 'bg-slate-700/50 border-slate-600 text-slate-400 pointer-events-none'} border px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg">
+                            ${task.status === '待处理' ? '上传截图并结案' : '已结案 ✓'}
+                        </button>
                 </div>`;
         });
         resultZone.innerHTML = html + `</div>`;
     } catch (error) {
         resultZone.innerHTML = `<div class="text-center text-rose-400 my-10">数据同步失败</div>`;
     }
+}
+
+// --- 业务流转：员工一键上传证据并结案 ---
+async function resolveTask(woId) {
+    // 极客黑科技：动态创建一个隐藏的文件选择器
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*'; // 只允许选图片
+    
+    // 监听选好文件后的动作
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const btn = document.getElementById(`btn-${woId}`);
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<div class="w-4 h-4 mx-auto border-2 border-white/30 border-t-white rounded-full animate-spin"></div>`;
+        btn.disabled = true;
+
+        try {
+            const token = localStorage.getItem('lk_token');
+            const formData = new FormData();
+            formData.append('file', file); // 组装文件表单数据
+
+            // 发射给后端！
+            const response = await fetch(`/api/v1/workorders/${woId}/resolve`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData // 注意：传 FormData 时千万不要手写 Content-Type，浏览器会自动设置
+            });
+
+            if (!response.ok) throw new Error("上传证据失败");
+
+            // 结案成功，重新拉取最新列表刷新 UI
+            loadStaffTasks();
+            
+        } catch (error) {
+            alert(error.message);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    };
+    
+    // 模拟点击，拉起系统文件选择窗口
+    fileInput.click();
 }
