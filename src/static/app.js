@@ -136,17 +136,18 @@ async function pollStatus(taskId) {
 
 // src/static/app.js (完全体：全卡片 Uiverse 高级特效渲染)
 
-// --- 核心渲染函数：完全体（融合了发光下载按钮与全息亚克力卡片） ---
+// --- 在外层定义一个全局记忆体，暂存当前正在看的数据 ---
+let currentBatchData = null;
+
 function renderResult(data) {
     const resultZone = document.getElementById('result-zone');
     resultZone.innerHTML = ""; 
     
     // ================= 批处理模式渲染 =================
     if (data.current_node === 'batch_processing_subgraph') {
-        // 【Bug修复】：处理 JSON 里的单引号和双引号转义问题，防止 HTML 标签断裂
-        const safeDataForBtn = JSON.stringify(data.batch_results)
-            .replace(/'/g, "&#39;")
-            .replace(/"/g, "&quot;");
+        
+        // 极客优化：把数据存入内存，不再往 HTML 标签里硬塞巨型字符串！
+        currentBatchData = data.batch_results;
 
         let tableHTML = `
             <div class="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
@@ -161,7 +162,7 @@ function renderResult(data) {
                             </div>
                         </div>
                         
-                        <button onclick="exportToExcel('${safeDataForBtn}')" 
+                        <button onclick="exportToExcel(this)" 
                                 class="flex items-center px-5 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 rounded-xl transition-all duration-300 group shadow-lg hover:shadow-indigo-500/20 shrink-0">
                             <svg class="w-5 h-5 mr-2 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -432,27 +433,31 @@ window.addEventListener('DOMContentLoaded', () => {
     // 如果之前有 fetchChangelog()，记得确保它们都能执行
 });
 
-// --- Task 3: 前端文件流下载逻辑 ---
-async function exportToExcel(results) {
+// --- 前端文件流下载逻辑 (优雅版) ---
+async function exportToExcel(btnElement) {
     try {
-        const btn = event.currentTarget;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = "正在生成...";
-        btn.disabled = true;
+        // 直接从内存中读取数据，安全且不会撑爆 HTML
+        if (!currentBatchData || currentBatchData.length === 0) {
+            alert("目前没有可导出的数据！");
+            return;
+        }
 
-        const response = await fetch('/api/v1/export/batch', {
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = "正在生成...";
+        btnElement.disabled = true;
+
+       const response = await fetch('/api/v1/export/batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(results)
+            // 【核心修改】：给数组套上 { results: ... } 外壳，完美迎合后端的 Pydantic 模型
+            body: JSON.stringify({ results: currentBatchData })
         });
 
         if (!response.ok) throw new Error("导出请求失败");
 
-        // 将返回的流转为 Blob
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         
-        // 创建隐藏链接并触发下载
         const a = document.createElement('a');
         const timestamp = new Date().getTime();
         a.href = url;
@@ -460,12 +465,11 @@ async function exportToExcel(results) {
         document.body.appendChild(a);
         a.click();
         
-        // 清理
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        btnElement.innerHTML = originalText;
+        btnElement.disabled = false;
     } catch (error) {
         console.error("导出失败:", error);
         alert("导出失败，请检查控制台");

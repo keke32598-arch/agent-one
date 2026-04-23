@@ -12,7 +12,12 @@ from src.agent.state import AgentState
 from src.agent.graph import build_agent_graph
 from src.utils.parser import parse_document  # 引入刚才写的统一解析器
 
-
+from pydantic import BaseModel
+from typing import List, Dict, Any
+import pandas as pd
+import io
+from fastapi.responses import StreamingResponse
+from fastapi import HTTPException
 
 # src/main.py 顶部新增
 import sqlite3
@@ -196,15 +201,18 @@ import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
 
-# --- Task 1: 生产力导出接口 ---
+# 1. 【新增】：定义极其严格的数据接收模型
+class ExportRequest(BaseModel):
+    results: List[Dict[str, Any]]
+
+# 2. 【修改】：让接口接收刚才定义的模型
 @app.post("/api/v1/export/batch")
-async def export_batch_results(results: list):
+async def export_batch_results(req: ExportRequest):
     """将 AI 处理结果转换为 Excel 下载流"""
     try:
-        # 1. 转换为 DataFrame
-        df = pd.DataFrame(results)
+        # 注意这里从 results 变成了 req.results
+        df = pd.DataFrame(req.results)
         
-        # 2. 映射表头，让导出的表格更专业
         column_mapping = {
             "original": "原始文本",
             "category": "分类标签",
@@ -212,16 +220,14 @@ async def export_batch_results(results: list):
         }
         df = df.rename(columns=column_mapping)
         
-        # 3. 在内存中构建 Excel 文件
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='AI分析结果')
             
         output.seek(0)
         
-        # 4. 返回流式响应
         headers = {
-            'Content-Disposition': 'attachment; filename="analysis_report.xlsx"'
+            'Content-Disposition': 'attachment; filename="LK_Analysis_Report.xlsx"'
         }
         return StreamingResponse(
             output, 
